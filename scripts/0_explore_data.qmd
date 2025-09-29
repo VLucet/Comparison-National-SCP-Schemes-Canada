@@ -1,0 +1,16 @@
+---
+title: Exploring Data from Prioritizations
+---
+
+```{r}
+library(terra)
+```
+
+## Currie et al. 2023
+
+We read in the data
+
+```{r}
+parc <- terra::rast("data-raw/currie_et_al_2023/archive/28255109/PARC_proj.tif")
+plot(parc)
+```
