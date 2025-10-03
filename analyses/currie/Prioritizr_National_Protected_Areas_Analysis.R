@@ -2,6 +2,8 @@
 # Ecological Representation
 # Nov 25 2024
 
+Sys.time()
+
 ##### Set-up #####
 # install packages
 
@@ -24,16 +26,19 @@ library(highs)
 library(RColorBrewer)
 library(exactextractr)
 
+# Define max cells for exact extract
+# max_cells <- 3e+10
+
 # set working directory to folder with data
-setwd("Z:/GIS_PRODUCTION/PROJECT/7.WPA/WPA_2023/Data/Inputs")
-getwd()
+# setwd("Z:/GIS_PRODUCTION/PROJECT/7.WPA/WPA_2023/Data/Inputs")
+# getwd()
 
 ##### data pre-processing #####
 # read in template data
-tempr <- terra::rast("./SpeciesAOH_v3/Rangifer_tarandus.tif")
+tempr <- terra::rast("analyses/currie/SpeciesAOH_v3/Rangifer_tarandus.tif")
 
 ##### PA processing #####
-pas <- terra::rast("./Protected_Areas_2022_proj.tif")
+pas <- terra::rast("analyses/currie/Protected_Areas_2022_proj.tif")
 pas <- subst(pas, NA, 0)
 plot(pas)
 pas[pas < 0] <- 0
@@ -57,7 +62,7 @@ pas[pas > 0] <- 1
 # plot(ecodist[, "TOTPA_PROP"])
 
 # 100km2 hexbins (computational limit)
-pu <- st_read("./Hexbins_100km_EA_ED.shp")
+pu <- st_read("analyses/currie/Hexbins_100km_EA_ED.shp")
 pu$lockedin <- ifelse(pu$pa_perc >= 0.5, TRUE, FALSE)
 
 # 10km2 hexbins
@@ -73,13 +78,13 @@ pu$lockedin <- ifelse(pu$pa_perc >= 0.5, TRUE, FALSE)
 # 
 # pu_lc <- exact_extract(lc2020, pu, 'frac')
 # rf <- raster::writeRaster(lc2020, filename="./lc2020_urb.tif", overwrite=TRUE)
-lc2020 <- terra::rast("./lc2020_urb.tif")
-lc20202 <- resample(lc2020, tempr)
+lc2020 <- terra::rast("analyses/currie/lc2020_urb.tif")
+lc20202 <- resample(lc2020, tempr, threads = TRUE)
 
 pu_lc <- exact_extract(lc2020, pu, 'frac')
 
-write.csv(pu_lc, "./pu_lc_100km2.csv")
-pu_lc <- read.csv("./pu_lc_100km2.csv")
+# write.csv(pu_lc, "analyses/currie/pu_lc_100km2.csv")
+pu_lc <- read.csv("analyses/currie/pu_lc_100km2.csv")
 
 pu$urb <- pu_lc$frac_1
 pu$lockedout <- ifelse(pu$urb >= 0.5, TRUE, FALSE)
@@ -89,24 +94,24 @@ pu$lockedout[(pu$lockedin == TRUE) & (pu$lockedout == TRUE)] <- FALSE
 
 ##### features processing #####
 # species ranges
-splist <- list.files(path = "./SpeciesAOH_v3", pattern='.tif$', all.files= T, full.names= T)
+splist <- list.files(path = "analyses/currie/SpeciesAOH_v3", pattern='.tif$', all.files= T, full.names= T)
 spstack <- terra::rast(splist)
 
 # kbas
-kba <- terra::rast("./KBA_proj.tif")
+kba <- terra::rast("analyses/currie/KBA_proj.tif")
 kba_r <- resample(kba, tempr)
 
 # parc-connectedness indicator (avg by ecodist)
-parc <- terra::rast("./PARC_proj.tif")
+parc <- terra::rast("analyses/currie/PARC_proj.tif")
 parc_r <- resample(parc, tempr)
 
 # protconn indicator (avg by ecodist)
-prot <- terra::rast("./ProtConn_proj.tif")
+prot <- terra::rast("analyses/currie/ProtConn_proj.tif")
 prot_r <- resample(prot, tempr)
 prot_r <- prot_r/100
 
 # total PA coverage
-ecod <- terra::rast("./Ecodist_proj.tif")
+ecod <- terra::rast("analyses/currie/Ecodist_proj.tif")
 ecod_r <- resample(ecod, tempr)
 ecod_r[ecod_r > 0] <- 1
 
@@ -123,7 +128,7 @@ spstack3 <- subset(spstack2, norep, negate=TRUE)
 feat <- c(spstack2, ecod_r, kba_r, prot_r, parc_r)
 
 # define/get targets
-sp_targets <- read.csv("./WPA2024_2022_SPI_species_taxon_targets_2.csv")
+sp_targets <- read.csv("analyses/currie/WPA2024_2022_SPI_species_taxon_targets_2.csv")
 spn <- names(spstack2)
 spn_filter <- sp_targets[sp_targets$Species %in% spn,]
 
@@ -143,34 +148,44 @@ featweights <- c(rep(1/742, 742), 1, 1, 1, 1)
 
 ##### build conservation problem #####
 # create problem with chosen parameters 
+Sys.time()
 p1 <- problem(pu, feat2, cost_column = 'cost') %>%
   add_max_features_objective(100000) %>%  
   add_locked_in_constraints("lockedin") %>% 
   add_locked_out_constraints("lockedout") %>%
   add_binary_decisions() %>%
   add_top_portfolio(number_solutions = 5) %>% #, remove_duplicates = TRUE) %>%
-  add_default_solver() %>%
+  add_default_solver(threads = 12) %>%
   add_feature_weights(featweights) %T>%
   run_calculations()
+Sys.time()
 
 #print(p1)
-# saveRDS(p1, "./p1_maxfeat30_5sol.rds")
-
+saveRDS(p1, "analyses/currie/p1_maxfeat30_5sol.rds")
+Sys.time()
 p2 <- p1 %>% add_relative_targets(targets = target20)
 p3 <- p1 %>% add_relative_targets(targets = target30)
 p4 <- p1 %>% add_relative_targets(targets = target40)
 p5 <- p1 %>% add_relative_targets(targets = target50)
+Sys.time()
 
 ##### solve using optimizer #####
+Sys.time()
 s2 <- solve(p2, force = TRUE)
+Sys.time()
 s3 <- solve(p3, force = TRUE)
+Sys.time()
 s4 <- solve(p4, force = TRUE)
+Sys.time()
 s5 <- solve(p5, force = TRUE)
+Sys.time()
 
-st_write(s2, "./Results/PrioritizR/pu_100km_target20_5sol.shp")
-st_write(s3, "./Results/PrioritizR/pu_100km_target30_5sol.shp")
-st_write(s4, "./Results/PrioritizR/pu_100km_target40_5sol.shp")
-st_write(s5, "./Results/PrioritizR/pu_100km_target50_5sol.shp")
+st_write(s2, "analyses/currie/Results/PrioritizR/pu_100km_target20_5sol.shp", delete_dsn = TRUE)
+st_write(s3, "analyses/currie/Results/PrioritizR/pu_100km_target30_5sol.shp", delete_dsn = TRUE)
+st_write(s4, "analyses/currie/Results/PrioritizR/pu_100km_target40_5sol.shp", delete_dsn = TRUE)
+st_write(s5, "analyses/currie/Results/PrioritizR/pu_100km_target50_5sol.shp", delete_dsn = TRUE)
+
+Sys.time()
 
 # plot solutions 
 # plot(s1[,'solution_1'], main = "Solution", axes = FALSE)
@@ -198,10 +213,10 @@ st_write(s5, "./Results/PrioritizR/pu_100km_target50_5sol.shp")
 ##### feature importance scores #####
 # calculate importance scores using Ferrier et al 2000 method 
 # and extract the total importance scores  
-ir2 <- eval_ferrier_importance(p1, s1[,"solution_1"])
+# ir2 <- eval_ferrier_importance(p1, s1[,"solution_1"])
 
 #plot importance scores 
-plot(ir2, axes = FALSE)
+# plot(ir2, axes = FALSE)
 
-ir3 <- sf::st_drop_geometry(ir2)
-write.csv(ir3, "./feat_importance_100km2_target30_sol5.csv")
+# ir3 <- sf::st_drop_geometry(ir2)
+# write.csv(ir3, "analyses/currie/feat_importance_100km2_target30_sol5.csv")
