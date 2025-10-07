@@ -1,0 +1,110 @@
+---
+title: Combining results from Prioritizations
+---
+
+```{r}
+library(terra)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scico)
+```
+
+## Read in data
+
+For currie 
+
+```{r}
+# Some hexes are duplicatde, so we slice head for each scenario below
+hexes <- read_sf("analyses/currie/Hexbins_100km_EA_ED.shp") |> 
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1)
+# ggplot(hexes[duplicated(hexes$OBJECTID_1),]) + geom_sf()
+# st_write(hexes[duplicated(hexes$OBJECTID_1),], "analyses/currie/results/hexes_dup.shp")
+
+# All scenarios
+# Choice: only taking solution 1
+currie_20 <- read_sf("analyses/currie/results/pu_100km_target20_5sol.shp") |> 
+    mutate(target = "t_20") |>
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1)
+currie_30 <- read_sf("analyses/currie/results/pu_100km_target30_5sol.shp") |> 
+    mutate(target = "t_30") |>
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1)
+currie_40 <- read_sf("analyses/currie/results/pu_100km_target40_5sol.shp") |> 
+    mutate(target = "t_40") |>
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1)
+currie_50 <- read_sf("analyses/currie/results/pu_100km_target50_5sol.shp") |> 
+    mutate(target = "t_50")  |>
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1)
+
+currie_all <- bind_rows(currie_20, currie_30, currie_40, currie_50) |>
+    # mutate(sol_sum = solution_1 + solution_2 + solution_3 + solution_4 + solution_5) |>
+    select(OBJECTID_1, GRID_ID, solution_5, target, geometry)
+
+currie_all_filt <- currie_all |> 
+    # mutate(sol_sum_bin = sol_sum > 0) |>
+    # filter(sol_sum_bin != 0) |>
+    # select(-sol_sum)
+    filter(solution_5 == 1)
+
+currie_all_filt_sum <- currie_all_filt |>
+    pivot_wider(names_from = target, 
+                values_from = solution_5, values_fill = 0) |>
+    mutate(priority = t_20 + t_30 + t_40 + t_50) |>
+    select(-starts_with("t_"))
+
+ggplot(currie_all_filt_sum) + geom_sf(aes(fill = priority), color = NA) + 
+    scale_fill_scico(palette = "vik")
+
+currie_list <- list(currie_20 = currie_20, 
+                    currie_30 = currie_30, 
+                    currie_40 = currie_40, 
+                    currie_50 = currie_50)
+
+for (sce_name in names(currie_list)) {
+    sce <- currie_list[[sce_name]]
+    for (sol in 1:5) {
+        plot_name <- paste0(sce_name, "_sol_", sol)
+        sol_var <- paste0("solution_", sol)
+        p <- ggplot(sce |> filter(.data[[sol_var]] > 0)) + 
+            geom_sf(aes(fill = .data[[sol_var]]), color = NA) +
+            ggtitle(plot_name) +
+            theme_minimal() +
+            theme(legend.position = "none")
+        ggsave(paste0("analyses/currie/results/", plot_name, ".png"), p)
+    }
+}
+# Let's assume that what we want is currie 30, solution #1
+currie_final <- currie_30 |> filter(solution_1 > 0)
+st_write(currie_final, "results/currie_final.shp", delete_dsn = T)
+```
+
+For Eckert
+
+```{r}
+hexes_eckert <- hexes |> select(OBJECTID_1, GRID_ID)
+main_rast <- rast("analyses/eckert/21732722/Rank Maps/Binary Run Maps/MASTER.tif") |> 
+    project (currie_final)
+main_rast[main_rast != 0] <- 1
+main_rast[main_rast == 0] <- 0
+main_rast[is.na(main_rast)] <- 0
+plot(main_rast)
+# terra::writeRaster(main_rast, "results/eckert_master_bin.tiff")
+
+# turn to same 100km grid for comparison
+extracted <- terra::extract(main_rast, hexes, fun = modal)
+eckert_final <- hexes |> bind_cols(extracted) |>
+    filter(MASTER == 1)
+
+ggplot(eckert_final) + 
+    geom_sf(aes(fill = MASTER), color = NA) +
+    theme_minimal() +
+    theme(legend.position = "none")
+
+st_write(eckert_final, "results/eckert_final.shp", delete_dsn = T)
+```
