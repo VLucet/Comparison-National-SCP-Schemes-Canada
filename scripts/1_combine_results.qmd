@@ -9,6 +9,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scico)
+library(stringr)
 ```
 
 ## Read in data
@@ -90,22 +91,35 @@ currie_final <- currie_30 |> filter(solution_1 > 0)
 st_write(currie_final, "results/currie_final.shp", delete_dsn = T)
 ```
 
-For Eckert
-
+Eckert results
 ```{r}
-hexes_eckert <- hexes |> select(OBJECTID_1, GRID_ID)
-main_rast <- rast("analyses/eckert/21732722/Rank Maps/Binary Run Maps/MASTER.tif") |> 
-    project (currie_final)
-main_rast[main_rast != 0] <- 1
-main_rast[main_rast == 0] <- 0
-main_rast[is.na(main_rast)] <- 0
+# Load all scenarios
+eckert_sce_list <- list.files("analyses/eckert/21732722/Rank Maps/Binary Run Maps/", 
+                              pattern = "\\.tif$", full.names = T)
+eckert_all_rast <- rast(eckert_sce_list)
+main_rast <- eckert_all_rast["MASTER"]
+
+hexes_eckert <- hexes |> 
+    select(OBJECTID_1, GRID_ID) |>
+    st_transform(st_crs(main_rast))
+
 plot(main_rast)
-# terra::writeRaster(main_rast, "results/eckert_master_bin.tiff")
+main_rast[is.na(main_rast)] <- 0
+main_rast[main_rast != 0] <- 1
+plot(main_rast)
+# terra::writeRaster(main_rast, "results/eckert_master_bin.tiff", overwrite = T)
 
 # turn to same 100km grid for comparison
-extracted <- terra::extract(main_rast, hexes, fun = modal)
-eckert_final <- hexes |> bind_cols(extracted) |>
-    filter(MASTER == 1)
+modal_fun <- function(x) {
+  x <- na.omit(x)
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+extracted <- terra::extract(main_rast, hexes_eckert, fun = modal_fun)
+eckert_final <- hexes_eckert |> 
+    bind_cols(extracted) |>
+    filter(MASTER == 1) |>
+    st_transform(st_crs(hexes))
 
 ggplot(eckert_final) + 
     geom_sf(aes(fill = MASTER), color = NA) +
@@ -114,3 +128,168 @@ ggplot(eckert_final) +
 
 st_write(eckert_final, "results/eckert_final.shp", delete_dsn = T)
 ```
+
+
+Karimi results
+```{r}
+karimi_sce_list <- c(
+    list.files("analyses/karimi/3-final_result/without_Indigenous_Lands/", 
+               pattern = "\\.tif$", full.names = T),
+    list.files("analyses/karimi/3-final_result/with_Indigenous_lands/", 
+               pattern = "\\.tif$", full.names = T)
+)
+karimi_sce_list <- karimi_sce_list[!str_detect(karimi_sce_list, "[Pp]enalty")]
+
+karimi_all_rast <- rast(karimi_sce_list)
+
+karimi_rast <- karimi_all_rast["NotIn_S11_HFCost_Lokedin_30Percent_Target"]
+hexes_karimi <- hexes |> 
+    select(OBJECTID_1, GRID_ID) |>
+    st_transform(st_crs(karimi_rast))
+
+plot(karimi_rast)
+karimi_rast[is.na(karimi_rast)] <- 0
+karimi_rast[karimi_rast != 0] <- 1
+plot(karimi_rast)
+
+extracted_karimi <- terra::extract(karimi_rast, hexes_karimi, fun = modal_fun)
+karimi_final <- hexes_karimi |> 
+    bind_cols(extracted_karimi) |>
+    filter(NotIn_S11_HFCost_Lokedin_30Percent_Target == 1) |>
+    st_transform(st_crs(hexes))
+
+ggplot(karimi_final) + 
+    geom_sf(aes(fill = NotIn_S11_HFCost_Lokedin_30Percent_Target), color = NA) +
+    theme_minimal() +
+    theme(legend.position = "none")
+
+st_write(karimi_final, "results/karimi_final.shp", delete_dsn = T)
+```
+
+## Rasterizing currie
+
+```{r}
+currie_final <- st_read("results/currie_final.shp")
+base_rast <- rast("analyses/eckert/21732722/Rank Maps/Binary Run Maps/MASTER.tif") |> 
+    project (currie_final, method = "mode")
+writeRaster(base_rast, "results/eckert_rast_reproj.tiff")
+currie_final_rasterized <- rasterize(currie_final, base_rast)
+writeRaster(currie_final_rasterized, "results/currie_final_rast.tiff")
+```
+
+## Comparisons
+
+Vector based 
+
+```{r}
+cur <- st_read("results/currie_final.shp") |> 
+    select(OBJECTID_1, GRID_ID, cur = solution_1) 
+eck <- st_read("results/eckert_final.shp") |> 
+    select(OBJECTID_1, GRID_ID, eck = MASTER)
+kar <- st_read("results/karimi_final.shp") |> 
+    select(OBJECTID_1 = OBJECTI, GRID_ID, kar = NI_S11_)
+
+all <- st_drop_geometry(cur)|> 
+    full_join(st_drop_geometry(eck)) |>
+    full_join(st_drop_geometry(kar)) |>
+    full_join(select(hexes, OBJECTID_1, GRID_ID)) |>
+    st_as_sf() |>
+    mutate(cur = ifelse(is.na(cur), 0, cur)) |>
+    mutate(eck = ifelse(is.na(eck), 0, eck)) |>
+    mutate(kar = ifelse(is.na(kar), 0, kar)) |>
+    mutate(agreement = cur + eck + kar)|>
+    filter(agreement >= 1)
+
+ggplot(all) +
+    geom_sf(aes(fill = agreement), color = NA) +
+    theme_minimal() +
+    theme(legend.position = "none") + 
+    scale_fill_scico(palette = "vik")
+```
+
+# Raster based
+
+Within studies
+```{r}
+karimi_prob <- mean(karimi_all_rast)
+writeRaster(karimi_prob, "results/karimi_prob.tiff")
+
+karimi_all_rast_locked <- karimi_all_rast[[
+    which(str_detect(names(karimi_all_rast), "_L(ockedin|okedin)_"))
+]]
+karimi_locked_prob <- mean(karimi_all_rast_locked)
+writeRaster(karimi_locked_prob, "results/karimi_prob_locked.tiff") 
+
+eckert_all_rast[eckert_all_rast != 0] <- 1
+eckert_prob <- mean(eckert_all_rast, na.rm=T)
+writeRaster(eckert_prob, "results/eckert_prob.tiff")
+
+eckert_prob_df <- as.data.frame(eckert_prob, xy = TRUE, cells = TRUE)
+eckert_prob_df <- eckert_prob_df[eckert_prob_df$mean != 0, ]
+karimi_locked_prob_df <- as.data.frame(karimi_locked_prob, xy = TRUE, cells = TRUE)
+karimi_locked_prob_df <- karimi_locked_prob_df[karimi_locked_prob_df$mean != 0, ]
+
+head(eckert_prob_df)
+head(karimi_locked_prob_df)
+
+eckert_prob_df |> 
+    mutate(x = scale(x), y = scale(y)) |>
+    mutate(x_w = x * mean, y_w = y * mean) |>
+    mutate(x_c = sum(x_w)/sum(mean), y_c = sum(y_w)/sum(mean)) |>
+    slice(1)
+
+karimi_locked_prob_df |> 
+    mutate(x = scale(x), y = scale(y)) |>
+    mutate(x_w = x * mean, y_w = y * mean) |>
+    mutate(x_c = sum(x_w)/sum(mean), y_c = sum(y_w)/sum(mean)) |>
+    slice(1)
+```
+
+ <!--
+```{r}
+hexes_sub <- read_sf("analyses/currie/Hexbins_100km_EA_ED.shp") |> 
+    group_by(OBJECTID_1)|>
+    slice_head(n = 1) |>
+    ungroup()
+plot(hexes_sub$geometry)
+hexes_simple <- hexes_sub[19,"geometry"]
+```
+
+## AI GEN 
+
+```{r}
+library(sf)
+library(dplyr)
+library(units)
+# Set size of smaller hexagons (in map units, e.g., meters or degrees)
+hex_size <- 1000  # example: 1000 meters
+
+# Create bounding box over large hexes
+bbox <- st_bbox(hexes_simple)
+
+# Generate smaller hex grid over the bounding box
+small_hex_grid <- st_make_grid(
+  hexes_simple,
+  cellsize = hex_size,
+  square = FALSE  # ensures hexagons
+) %>%
+  st_sf()
+# Perform spatial join to clip small hexes within large ones
+# This assigns an ID to each large hexagon
+hexes_simple <- hexes_simple %>%
+  mutate(hex_id = row_number())
+
+# Spatial join: assign each small hex to the large hex it falls into
+small_in_large <- st_join(small_hex_grid, hexes_simple, join = st_intersects)
+
+# Optionally remove NAs (those small hexes not within any large hex)
+small_in_large <- small_in_large %>% filter(!is.na(hex_id))
+library(ggplot2)
+
+ggplot() +
+  geom_sf(data = hexes_simple, fill = NA, color = "black") +
+  geom_sf(data = small_in_large, aes(fill = as.factor(hex_id)), color = NA, alpha = 0.6) +
+  theme_minimal() + theme(legend.position = "none")
+
+```
+-->
