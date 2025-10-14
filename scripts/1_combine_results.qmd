@@ -13,8 +13,7 @@ library(scico)
 
 ## Read in data
 
-For currie 
-
+Base hexes (currie paper)
 ```{r}
 # Some hexes are duplicatde, so we slice head for each scenario below
 hexes <- read_sf("analyses/currie/Hexbins_100km_EA_ED.shp") |> 
@@ -22,7 +21,10 @@ hexes <- read_sf("analyses/currie/Hexbins_100km_EA_ED.shp") |>
     slice_head(n = 1)
 # ggplot(hexes[duplicated(hexes$OBJECTID_1),]) + geom_sf()
 # st_write(hexes[duplicated(hexes$OBJECTID_1),], "analyses/currie/results/hexes_dup.shp")
+```
 
+Currie results
+```{r}
 # All scenarios
 # Choice: only taking solution 1
 currie_20 <- read_sf("analyses/currie/results/pu_100km_target20_5sol.shp") |> 
@@ -46,12 +48,14 @@ currie_all <- bind_rows(currie_20, currie_30, currie_40, currie_50) |>
     # mutate(sol_sum = solution_1 + solution_2 + solution_3 + solution_4 + solution_5) |>
     select(OBJECTID_1, GRID_ID, solution_5, target, geometry)
 
+# Only 1s
 currie_all_filt <- currie_all |> 
     # mutate(sol_sum_bin = sol_sum > 0) |>
     # filter(sol_sum_bin != 0) |>
     # select(-sol_sum)
     filter(solution_5 == 1)
 
+# Summarize all scenarios
 currie_all_filt_sum <- currie_all_filt |>
     pivot_wider(names_from = target, 
                 values_from = solution_5, values_fill = 0) |>
@@ -66,6 +70,7 @@ currie_list <- list(currie_20 = currie_20,
                     currie_40 = currie_40, 
                     currie_50 = currie_50)
 
+# Write out figures
 for (sce_name in names(currie_list)) {
     sce <- currie_list[[sce_name]]
     for (sol in 1:5) {
@@ -79,6 +84,7 @@ for (sce_name in names(currie_list)) {
         ggsave(paste0("analyses/currie/results/", plot_name, ".png"), p)
     }
 }
+
 # Let's assume that what we want is currie 30, solution #1
 currie_final <- currie_30 |> filter(solution_1 > 0)
 st_write(currie_final, "results/currie_final.shp", delete_dsn = T)
