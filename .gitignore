@@ -1,15 +1,2 @@
-archives
-
-analyses/**
-
-!analyses/currie
-analyses/currie/**
-!analyses/currie/Prioritizr_National_Protected_Areas_Analysis.R
-
-!analyses/karimi
-analyses/karimi/**
-!analyses/karimi/Canada wide prioritization
-analyses/karimi/Canada wide prioritization/**
-!analyses/karimi/Canada wide prioritization/SahebehK_Scenarios_f.R
-
+data
 results
