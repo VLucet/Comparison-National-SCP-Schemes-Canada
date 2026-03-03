@@ -143,7 +143,7 @@ list(
   tar_terra_rast(
     eckert_scenarios_sum, 
     {
-      temp <- sum(eckert_scenarios)
+      temp <- sum(eckert_scenarios, na.rm = T)
       names(temp) <- "sum"
       temp
     }
