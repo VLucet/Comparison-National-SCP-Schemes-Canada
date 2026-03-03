@@ -211,18 +211,18 @@ ggplot(all) +
 
 Within studies
 ```{r}
-karimi_prob <- mean(karimi_all_rast)
-writeRaster(karimi_prob, "results/karimi_prob.tiff")
+# karimi_prob <- mean(karimi_all_rast)
+# writeRaster(karimi_prob, "results/karimi_prob.tiff")
 
-karimi_all_rast_locked <- karimi_all_rast[[
-    which(str_detect(names(karimi_all_rast), "_L(ockedin|okedin)_"))
-]]
-karimi_locked_prob <- mean(karimi_all_rast_locked)
-writeRaster(karimi_locked_prob, "results/karimi_prob_locked.tiff") 
+# karimi_all_rast_locked <- karimi_all_rast[[
+#     which(str_detect(names(karimi_all_rast), "_L(ockedin|okedin)_"))
+# ]]
+# karimi_locked_prob <- mean(karimi_all_rast_locked)
+# writeRaster(karimi_locked_prob, "results/karimi_prob_locked.tiff") 
 
-eckert_all_rast[eckert_all_rast != 0] <- 1
-eckert_prob <- mean(eckert_all_rast, na.rm=T)
-writeRaster(eckert_prob, "results/eckert_prob.tiff")
+# eckert_all_rast[eckert_all_rast != 0] <- 1
+# eckert_prob <- mean(eckert_all_rast, na.rm=T)
+# writeRaster(eckert_prob, "results/eckert_prob.tiff")
 
 eckert_prob_df <- as.data.frame(eckert_prob, xy = TRUE, cells = TRUE)
 eckert_prob_df <- eckert_prob_df[eckert_prob_df$mean != 0, ]
