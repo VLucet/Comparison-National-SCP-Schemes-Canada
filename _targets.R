@@ -18,7 +18,38 @@ list(
 
   ## INPUTS
 
-  ## Coristine: NOT AVAILABLE
+  ## Canada boundaries
+  tar_target(
+    canada_archive_path,
+    here("data", "canada", "canada.zip")
+  ),
+  tar_target(
+    canada_archive, 
+    {
+      if (!file.exists(canada_archive_path)) {
+        download.file(
+          "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000b21a_e.zip",
+          canada_archive_path
+        )
+      }
+      canada_archive_path
+    }
+  ),
+  # Unzip
+  tar_file(
+    canada_shp,
+    unzip(canada_archive, exdir = here("data", "canada"))
+  ),
+  # Load as sf
+  tar_target(
+    canada_sf,
+    st_read(canada_shp[str_detect(canada_shp, fixed(".shp"))]) |> st_union()
+  ),
+  # Simplify
+  tar_target(
+    canada_sf_simp, 
+    st_simplify(canada_sf, dTolerance = 1000)
+  ),
 
   ## Karimi
   ## shared by the author
@@ -131,7 +162,7 @@ list(
   # Stacks and reprojects
   tar_terra_rast(
     eckert_stack,
-    resample(project(c(eckert_scenarios, sum = eckert_scenarios_sum, scaled = eckert_scenarios_scaled), 
+    resample(project(c(eckert_scenarios, eckert_scenarios_sum, eckert_scenarios_scaled), 
                      karimi_stack, method = "near"), 
              karimi_stack, method = "near")
   ),
