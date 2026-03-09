@@ -3,7 +3,7 @@ library(tarchetypes)
 library(geotargets)
 library(dplyr)
 
-tar_source()
+tar_source("functions.R")
 
 tar_option_set(packages = c(
   "here", 
