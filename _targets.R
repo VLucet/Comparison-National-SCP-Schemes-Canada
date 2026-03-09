@@ -51,6 +51,30 @@ list(
     st_simplify(canada_sf, dTolerance = 1000)
   ),
 
+  # ## Make canada raster based off KARIMI
+  # tar_terra_rast(
+  #   canada_rast,
+  #   {
+  #     as_sf <- st_as_sf(canada_sf_simp) |> st_transform(st_crs(karimi_scenarios))
+  #     as_sf["can"] <- 1
+  #     rasterize(as_sf, karimi_scenarios, field = "can")
+  #   }
+  # ),
+
+  ## PAs (from karimi)
+  tar_file(
+    protected_areas_file,
+    here("data", "analyses", "karimi", "PA.tif")
+  ),
+  tar_terra_rast(
+    protected_areas,
+    rast(protected_areas_file)
+  ),
+    tar_qs(
+    protected_areas_values,
+    values(protected_areas)
+  ),
+
   ## Karimi
   ## shared by the author
   tar_file(
