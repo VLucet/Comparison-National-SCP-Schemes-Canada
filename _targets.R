@@ -247,13 +247,21 @@ list(
     c(currie_stack_pre, currie_rast_all_sols_scaled)
   ),
 
-  ## Combine the 3 results, make "consensus map" (redo what olivia did, essentially)
-
   ## ALL SCENARIOS FROM ALL STUDIES STACK
   tar_terra_rast(
     all_scenarios,
     c(karimi_stack, eckert_stack, currie_stack)
   ),
+
+  ## Figure F4
+  # TODO: incorporate Olivia's code
+  tar_terra_rast(
+    all_scenarios_sum,
+    sum(all_scenarios)
+  ),
+
+  ## Figures S1 & F5
+
   # Get Values
   tar_qs(
     all_scenarios_values,
@@ -334,7 +342,7 @@ list(
     scenarios_centroids |>
       left_join(scenario_LUT)
   ),
-  # Plot
+  # Figure 5
   tar_target(
     scenario_centroid_plot,
     {
@@ -357,4 +365,6 @@ list(
       p
     }
   )
+
+  # TODO: add code for Figure 2 (from Melanie)
 )
