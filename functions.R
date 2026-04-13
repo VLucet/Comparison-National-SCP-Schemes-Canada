@@ -1,8 +1,5 @@
-get_scenario_LUT <- function(scenarios_centroids) {
-  data.frame(
-      scenario = scenarios_centroids$scenario,
-      study = c(rep("Karimi et al.", 6), rep("Eckert et al.", 15), rep("Currie et al.", 6)),
-      name = c(
+get_scenarios_in_order <- function() {
+  c(
         # 6 Karimi
         "SameCost LogLinear",
         "SameCost 30%",
@@ -36,6 +33,13 @@ get_scenario_LUT <- function(scenarios_centroids) {
         "Sum",
         "Scaled"
       )
+}
+
+get_scenario_LUT <- function(scenarios_centroids) {
+  data.frame(
+      scenario = scenarios_centroids$scenario,
+      study = c(rep("Karimi et al.", 6), rep("Eckert et al.", 15), rep("Currie et al.", 6)),
+      name = get_scenarios_in_order()
     )
 }
 
