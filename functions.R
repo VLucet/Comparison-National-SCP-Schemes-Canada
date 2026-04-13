@@ -39,6 +39,11 @@ get_scenario_LUT <- function(scenarios_centroids) {
     )
 }
 
+my_mean <- function(x) {
+  x[is.na(x)] <- 0
+  mean(x)
+}
+
 # compute_centroids <- function(xy_mat, values_mat) {
 #   xy_mat_scaled <- scale(xy_mat) |> as.matrix()
 #   values_mat_norm <- sweep(values_mat, 2, colSums(values_mat), "/") |> as.matrix()

@@ -1,15 +1,22 @@
+# Targets paper full analysis
+# This code uses a targets pipeline to produce intermediate outputs
+# Some operations would not run inside the pipeline and therefore, after
+# running targets::tar_make(), move on to the scripts in the scripts folder.
+
+# Needed packages
 library(targets)
 library(tarchetypes)
 library(geotargets)
-library(dplyr)
-library(ggplot2)
-library(ggrepel)
 
+# Load needed functions
 tar_source("functions.R")
 
+# Packages to load within pipepline
 tar_option_set(packages = c(
   "here", 
   "ggplot2",
+  "ggrepel",
+  "pheatmap",
   "stringr",
   "dplyr",
   "terra",
@@ -21,10 +28,12 @@ list(
   ## INPUTS
 
   ## Canada boundaries
+  # Zipped file
   tar_target(
     canada_archive_path,
     here("data", "canada", "canada.zip")
   ),
+  # Download if doesn't exist
   tar_target(
     canada_archive, 
     {
@@ -53,28 +62,18 @@ list(
     st_simplify(canada_sf, dTolerance = 1000)
   ),
 
-  # ## Make canada raster based off KARIMI
-  # tar_terra_rast(
-  #   canada_rast,
-  #   {
-  #     as_sf <- st_as_sf(canada_sf_simp) |> st_transform(st_crs(karimi_scenarios))
-  #     as_sf["can"] <- 1
-  #     rasterize(as_sf, karimi_scenarios, field = "can")
-  #   }
-  # ),
-
-  ## PAs (from karimi)
+  ## Protected areas (from karimi)
   # File
   tar_file(
     protected_areas_file,
     here("data", "analyses", "karimi", "PA.tif")
   ),
-  # Raster
+  # Load as raster
   tar_terra_rast(
     protected_areas,
     rast(protected_areas_file)
   ),
-  # Values
+  # Extract values
   tar_qs(
     protected_areas_values,
     values(protected_areas)
@@ -83,18 +82,10 @@ list(
   ## Karimi
   ## shared by the author
   tar_file(
-    karimi_archive_analysis, 
-    here("data", "archives", "karimi", "Canada wide prioritization.zip")
-  ),
-  tar_file(
     karimi_archive_results, 
     here("data", "archives", "karimi", "3-final_result.zip")
   ),
   # Extract them
-  tar_file(
-    karimi_analysis,
-    unzip(karimi_archive_analysis, exdir = here("data", "analyses", "karimi"))
-  ),
    tar_file(
     karimi_results,
     unzip(karimi_archive_results, exdir = here("data", "analyses", "karimi"))
@@ -108,7 +99,7 @@ list(
       rast(no_ind_only)
     }
   ),
-  # Filter down to locked
+  # Filter down to locked scenarios
   tar_terra_rast(
     karimi_scenarios_locked, 
     karimi_scenarios[[which(str_detect(names(karimi_scenarios), "_L(ockedin|okedin)_"))]]
@@ -204,10 +195,12 @@ list(
   ),
 
   ## Currie
+  ## From downloaded archive
   tar_file(
     currie_archive,    
     here("data", "archives", "currie", "28255109.zip")
   ),
+  # File list
   tar_target(
     currie_all_files,
     {
@@ -216,6 +209,7 @@ list(
       return(the_list)
     }
   ),
+  # Read as sf
   tar_target(
     currie_sf,
     st_read(currie_all_files["pu_100km_alltargets_1sol.shp"])
@@ -225,7 +219,7 @@ list(
     currie_sf_clean,
     currie_sf |> group_by(OBJECTID_1) |> slice(1) |> ungroup()
   ),
-  # Comvert to rast
+  # Convert to rast
   tar_terra_rast(
     currie_stack_pre, 
     c(
@@ -253,10 +247,9 @@ list(
     c(currie_stack_pre, currie_rast_all_sols_scaled)
   ),
 
-  ## Stack all rasters, reproject, run correlations
-  ## SEE SCRIPT ( could not do that with targets)
-
   ## Combine the 3 results, make "consensus map" (redo what olivia did, essentially)
+
+  ## ALL SCENARIOS FROM ALL STUDIES STACK
   tar_terra_rast(
     all_scenarios,
     c(karimi_stack, eckert_stack, currie_stack)
@@ -271,7 +264,7 @@ list(
     all_scenarios_coords,
     as.data.frame(crds(all_scenarios[[1]], na.rm = FALSE))
   ),
-  # Remove PAs
+  # Remove Protected areas
   tar_qs(
     all_scenarios_values_clean_pre,
     {
@@ -299,14 +292,18 @@ list(
     scenarios_cor,
     cor(all_scenarios_values_clean[,3:ncol(all_scenarios_values_clean)])
   ),
-  # Heatmap
+  # Heatmap (Fig S1)
   tar_target(
     cor_heatmap,
-    heatmap(scenarios_cor, symm = T)
+    {
+      png("plots/correlation_heatmap.png", width = 1000, height = 1000)
+      pheatmap(scenarios_cor, symm = T, treeheight_row = 0, treeheight_col = 0)
+      dev.off()
+    }
   ),
 
 
-  # Centroids
+  ## Scenario Centroids
   tar_target(
     scenarios_centroids,
     {
