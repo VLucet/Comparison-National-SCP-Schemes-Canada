@@ -301,7 +301,7 @@ list(
   tar_target(
     cor_heatmap,
     {
-      png("plots/S1_correlation_heatmap.png", width = 1000, height = 1000)
+      png(here("plots", "S1_correlation_heatmap.png"), width = 1000, height = 1000)
       pheatmap(scenarios_cor, symm = T, treeheight_row = 0, treeheight_col = 0)
       dev.off()
     }
@@ -339,7 +339,7 @@ list(
     scenario_centroid_plot,
     {
       p <- scenarios_centroids_clean |>
-            ggplot(aes(x, y)) +
+            ggplot(aes(x, y, color = study)) +
             theme_bw() +
             geom_point(position = position_jitter(width = 0.1, seed = 123)) +
             geom_text_repel(
@@ -347,13 +347,13 @@ list(
               fontface = "bold",
               position = position_jitter(width = 0.1, seed = 123),
               box.padding = unit(0.5, "lines"),
-              segment.color = 'grey') +
-            # scale_color_discrete() +
+              segment.color = 'grey', show.legend = FALSE) +
+            scale_color_discrete(palette=c("#003f5c", "#9f509d", "#ffa600")) +
             coord_fixed() +
             labs(x="Centroid Longitude (Scaled & Centered)", 
                  y="Centroid Latitude (Scaled & Centered)", 
           color = "Scenario \nOrigin")
-      ggsave("centroid_plot.png", p, width = 8, height = 10)
+      ggsave(here("plots", "Fig5_centroid_plot.png"), p, width = 8, height = 10)
       p
     }
   )
