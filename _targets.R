@@ -2,6 +2,8 @@ library(targets)
 library(tarchetypes)
 library(geotargets)
 library(dplyr)
+library(ggplot2)
+library(ggrepel)
 
 tar_source("functions.R")
 
@@ -62,15 +64,18 @@ list(
   # ),
 
   ## PAs (from karimi)
+  # File
   tar_file(
     protected_areas_file,
     here("data", "analyses", "karimi", "PA.tif")
   ),
+  # Raster
   tar_terra_rast(
     protected_areas,
     rast(protected_areas_file)
   ),
-    tar_qs(
+  # Values
+  tar_qs(
     protected_areas_values,
     values(protected_areas)
   ),
@@ -112,8 +117,8 @@ list(
   tar_terra_rast(
     karimi_scenarios_locked_sum,
     {
-      temp <- sum(karimi_scenarios_locked)
-      names(temp) <- "sum"
+      temp <- sum(karimi_scenarios_locked, na.rm = T)
+      names(temp) <- "karimi_sum"
       temp
     }
   ),
@@ -124,7 +129,7 @@ list(
       r_min <- global(karimi_scenarios_locked_sum, "min", na.rm=TRUE)[,1]
       r_max <- global(karimi_scenarios_locked_sum, "max", na.rm=TRUE)[,1]
       r_scaled <- (karimi_scenarios_locked_sum - r_min) / (r_max - r_min)
-      names(r_scaled) <- "scaled"
+      names(r_scaled) <- "karimi_scaled"
       r_scaled
     }
   ),
@@ -168,30 +173,37 @@ list(
     eckert_scenarios_sum, 
     {
       temp <- sum(eckert_scenarios, na.rm = T)
-      names(temp) <- "sum"
+      names(temp) <- "eckert_sum"
       temp
     }
   ),
   # Scale them
   tar_terra_rast(
-    eckert_scenarios_scaled, 
+    eckert_scenarios_scaled,
     {
       r_min <- global(eckert_scenarios_sum, "min", na.rm=TRUE)[,1]
       r_max <- global(eckert_scenarios_sum, "max", na.rm=TRUE)[,1]
       r_scaled <- (eckert_scenarios_sum - r_min) / (r_max - r_min)
-      names(r_scaled) <- "scaled"
+      names(r_scaled) <- "eckert_scaled"
       r_scaled
     }
+  ),
+  tar_terra_rast(
+    eckert_scenarios_scaled_rj,
+    resample(
+          project(eckert_scenarios_scaled, karimi_scenarios_locked_scaled, method = "near"),
+          karimi_scenarios_locked_scaled, method = "near"
+        )
   ),
   # Stacks and reprojects
   tar_terra_rast(
     eckert_stack,
-    resample(project(c(eckert_scenarios, eckert_scenarios_sum, eckert_scenarios_scaled), 
+    c(resample(project(c(eckert_scenarios, eckert_scenarios_sum), 
                      karimi_stack, method = "near"), 
-             karimi_stack, method = "near")
+             karimi_scenarios_locked_scaled, method = "near"), eckert_scenarios_scaled_rj)
   ),
 
-  ## Currie: NOW AVAILABLE, code does not reproduces the results
+  ## Currie
   tar_file(
     currie_archive,    
     here("data", "archives", "currie", "28255109.zip")
@@ -215,78 +227,137 @@ list(
   ),
   # Comvert to rast
   tar_terra_rast(
-    currie_rast_all_sols, 
-    rasterize(vect(currie_sf_clean), karimi_stack, field = "targetsum")
+    currie_stack_pre, 
+    c(
+       rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "target20"),
+       rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "target30"),
+       rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "target40"),
+       rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "target50"),
+       rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "targetsum")
+    )
   ),
   # Rescale
   tar_terra_rast(
-    currie_rast_all_sols_scaled, 
+    currie_rast_all_sols_scaled,
     {
-      r_min <- global(currie_rast_all_sols, "min", na.rm=TRUE)[,1]
-      r_max <- global(currie_rast_all_sols, "max", na.rm=TRUE)[,1]
-      r_scaled <- (currie_rast_all_sols - r_min) / (r_max - r_min)
+      r_min <- global(currie_stack_pre[["targetsum"]], "min", na.rm=TRUE)[,1]
+      r_max <- global(currie_stack_pre[["targetsum"]], "max", na.rm=TRUE)[,1]
+      r_scaled <- (currie_stack_pre[["targetsum"]] - r_min) / (r_max - r_min)
+      names(r_scaled) <- "currie_scaled"
+      r_scaled
     }
+  ),
+  # Full stack
+  tar_terra_rast(
+    currie_stack,
+    c(currie_stack_pre, currie_rast_all_sols_scaled)
   ),
 
   ## Stack all rasters, reproject, run correlations
+  ## SEE SCRIPT ( could not do that with targets)
+
+  ## Combine the 3 results, make "consensus map" (redo what olivia did, essentially)
   tar_terra_rast(
     all_scenarios,
-    c(karimi_stack, eckert_stack, currie_rast_all_sols)
+    c(karimi_stack, eckert_stack, currie_stack)
   ),
+  # Get Values
   tar_qs(
     all_scenarios_values,
     as.data.frame(values(all_scenarios))
   ),
+  # Get coords
   tar_qs(
-    all_scenarios_values_clean,
+    all_scenarios_coords,
+    as.data.frame(crds(all_scenarios[[1]], na.rm = FALSE))
+  ),
+  # Remove PAs
+  tar_qs(
+    all_scenarios_values_clean_pre,
     {
-      temp <- all_scenarios_values[rowSums(is.na(all_scenarios_values)) != ncol(all_scenarios_values), ]
-      temp[is.na(temp)] <- 0
+      temp <- all_scenarios_values
+      temp[which(protected_areas_values==1),] <- NA
       temp
     }
   ),
-  tar_target(
-    all_scenarios_cor,
-    cor(all_scenarios_values_clean)
-  ),
-
-  ## Combine the 3 results, make "consensus map" (redo what olivia did, essentially)
-
-
-  ## Old way to look at it, see later
-
-  ## Canada boundaries
-  tar_target(
-    canada_archive_path,
-    here("data", "canada", "canada.zip")
-  ),
-  tar_target(
-    canada_archive, 
-    {
-      if (!file.exists(canada_archive_path)) {
-        download.file(
-          "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000b21a_e.zip",
-          canada_archive_path
-        )
-      }
-      canada_archive_path
+  # Align NAs
+  tar_qs(
+    all_scenarios_values_clean,
+    {  
+      to_include <- rowSums(is.na(all_scenarios_values_clean_pre)) != 
+          ncol(all_scenarios_values_clean_pre)
+      
+      temp_coords <- all_scenarios_coords[to_include, ]
+      temp <- all_scenarios_values_clean_pre[to_include, ]
+      temp[is.na(temp)] <- 0
+      
+      cbind(temp_coords, temp)
     }
   ),
-  # Unzip
-  tar_file(
-    canada_shp,
-    unzip(canada_archive, exdir = here("data", "canada"))
-  ),
-  # Load as sf
+  # Correlations
   tar_target(
-    canada_sf,
-    st_read(canada_shp[str_detect(canada_shp, fixed(".shp"))]) |> st_union()
+    scenarios_cor,
+    cor(all_scenarios_values_clean[,3:ncol(all_scenarios_values_clean)])
   ),
-  # Simplify
+  # Heatmap
   tar_target(
-    canada_sf_simp, 
-    st_simplify(canada_sf, dTolerance = 1000)
+    cor_heatmap,
+    heatmap(scenarios_cor, symm = T)
   ),
+
+
+  # Centroids
+  tar_target(
+    scenarios_centroids,
+    {
+      xy_mat_scaled <- scale(all_scenarios_values_clean[,1:2]) |> 
+        as.matrix()
+      values_mat <- all_scenarios_values_clean[,3:ncol(all_scenarios_values_clean)] |> 
+        as.matrix()
+      values_mat_norm <- sweep(values_mat, 2, colSums(values_mat), "/")
+      centroids <- t(xy_mat_scaled) %*% values_mat_norm 
+
+      t(centroids) |> 
+        as.data.frame() |>
+        tibble::rownames_to_column("scenario") 
+    }
+  ),
+  # Scanario LUT
+  tar_target(
+    scenario_LUT,
+    get_scenario_LUT(scenarios_centroids)
+  ),
+  # clean
+  tar_target(
+    scenarios_centroids_clean, 
+    scenarios_centroids |>
+      left_join(scenario_LUT)
+  ),
+  # Plot
+  tar_target(
+    scenario_centroid_plot,
+    {
+      p <- scenarios_centroids_clean |>
+            ggplot(aes(x, y)) +
+            theme_bw() +
+            geom_point(position = position_jitter(width = 0.1, seed = 123)) +
+            geom_text_repel(
+              aes(label = name, color = study),
+              fontface = "bold",
+              position = position_jitter(width = 0.1, seed = 123),
+              box.padding = unit(0.5, "lines"),
+              segment.color = 'grey') +
+            # scale_color_discrete() +
+            coord_fixed() +
+            labs(x="Centroid Longitude (Scaled & Centered)", 
+                 y="Centroid Latitude (Scaled & Centered)", 
+          color = "Scenario \nOrigin")
+      ggsave("centroid_plot.png", p, width = 8, height = 10)
+      p
+    }
+  ),
+  
+  ## Old way to look at it, see later
 
   ## Create hexes
   ## OLD: my grid
