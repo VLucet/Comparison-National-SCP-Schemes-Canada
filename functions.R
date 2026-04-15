@@ -61,7 +61,7 @@ process_hist_data <- function(t_hist) {
   # 4. Recode metric labels
   t_hist_long$Metric <- recode(
     t_hist_long$Metric,
-    "X2020.2024.Increase" = "2020–2024 Increase",   
+    "X2020.2024.Increase" = "2020-2024 Increase",   
     "X2020.Baseline"      = "2020 Baseline"
   )
 
