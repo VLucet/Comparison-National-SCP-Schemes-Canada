@@ -14,6 +14,8 @@ tar_source("functions.R")
 # Packages to load within pipepline
 tar_option_set(packages = c(
   "here", 
+  "readr",
+  "tidyr",
   "ggplot2",
   "ggrepel",
   "pheatmap",
@@ -364,7 +366,86 @@ list(
       ggsave(here("plots", "Fig5_centroid_plot.png"), p, width = 8, height = 10)
       p
     }
-  )
+  ),
 
-  # TODO: add code for Figure 2 (from Melanie)
+  # Figure F2
+  # Load data
+  tar_target(
+    fig2_data,
+    read_csv(here("data", "T_Fig2_Data.csv"))
+  ),
+  # Manipulate data
+  tar_target(
+    t_hist_long,
+    process_hist_data(fig2_data)
+  ),
+  # Make figure
+  tar_target(
+    histogram_progress,
+    {
+      # Code contributed by M. Brochu
+      fig <- ggplot(t_hist_long, aes(x = Region, y = Value, fill = Metric)) +
+        # A. Reverse stacked bars so baseline is on the bottom
+        geom_col(width = 0.8, position = position_stack(reverse = TRUE)) +
+        # B. Facet: provinces & territories in left panel, national totals in right panel
+        facet_grid(
+          . ~ Group,
+          scales = "free_x",
+          space  = "free_x",
+          switch = "x"          # strip labels at bottom
+        ) +
+        # C. Colours
+        scale_fill_manual(
+          values = c(
+            "2020-2024 Increase" = "#33a02c",
+            "2020 Baseline"      = "#1f78b4"
+          )
+        ) +
+        # D. Y-axis: 0 to 25%, ticks every 5%
+        scale_y_continuous(
+          limits = c(0, 25),
+          expand = expansion(mult = c(0, 0.02)),
+          breaks = seq(0, 25, 5)
+        ) +
+        # E. Axis & legend labels
+        labs(
+          x    = NULL,
+          y    = "Percentage",
+          fill = NULL
+        ) +
+        # F. Aesthetics
+        # Base theme: classic
+        theme_classic(base_size = 12) +
+        theme(
+          # Panel border visible on all sides
+          panel.grid   = element_blank(),
+          panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+          
+          # Strip label styling
+          strip.placement  = "outside",
+          strip.background = element_blank(),
+          strip.text       = element_text(face = "bold", size = 12),
+          
+          # Axis lines & ticks
+          axis.line    = element_line(colour = "black", linewidth = 0.4),
+          axis.ticks   = element_line(colour = "black", linewidth = 0.4),
+          axis.text.x  = element_text(angle = 45, hjust = 1, vjust = 1, size = 10),
+          axis.text.y  = element_text(size = 10),
+          axis.title.y = element_text(size = 12, face = "bold", margin = margin(r = 8)),
+          
+          # Legend: horizontal, above the plot
+          legend.position  = "top",
+          legend.box       = "horizontal",
+          legend.key.width = unit(1.4, "lines"),
+          legend.spacing.x = unit(6, "pt"),
+          legend.text      = element_text(size = 11),
+          legend.margin    = margin(b = 6),
+          
+          # No in-figure title
+          plot.title = element_blank()
+        )
+      ggsave(here("plots", "Fig2_protection_progress.png"), fig, width = 12, height = 7)
+      fig
+    }
+  )
 )
