@@ -52,21 +52,21 @@ process_hist_data <- function(t_hist) {
   # Code contributed by M. Brochu
   # 3. Reshape from wide to long
   t_hist_long <- t_hist %>%
-    pivot_longer(
+    tidyr::pivot_longer(
       cols      = -Region,
       names_to  = "Metric",
       values_to = "Value"
     )
 
   # 4. Recode metric labels
-  t_hist_long$Metric <- recode(
+  t_hist_long$Metric <- dplyr::recode(
     t_hist_long$Metric,
     "X2020.2024.Increase" = "2020-2024 Increase",   
     "X2020.Baseline"      = "2020 Baseline"
   )
 
   # 5. Rename & reorder regions
-  t_hist_long$Region <- recode(
+  t_hist_long$Region <- dplyr::recode(
     t_hist_long$Region,
     "Terrestrial total" = "Terrestrial",
     "Marine total"      = "Marine"
