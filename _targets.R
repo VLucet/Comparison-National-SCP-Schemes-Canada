@@ -71,6 +71,16 @@ list(
     st_simplify(canada_sf, dTolerance = 1000)
   ),
 
+  # Color palette
+  tar_target(
+    pal, 
+    list(middle="#a7c189", 
+         up="#DA9740", 
+         up_pale="#F8CE77",
+         down="#488D91", 
+         down_pale = "#84A699") 
+  ),
+
   ## Karimi
   ## shared by the author
   tar_file(
@@ -330,7 +340,7 @@ list(
       p1 <- ggplot() +
         
         geom_spatraster(data=all_scenarios_sum_no_PA) +
-        scale_fill_whitebox_c("soft") +
+        scale_fill_princess_c("america") +
 
         labs(fill="Selection \nFrequency") +
 
@@ -359,8 +369,8 @@ list(
         
         geom_spatraster(data=all_scenarios_sum_no_PA_30) +
         scale_fill_manual(
-          values=c(`Unselected` = "#CC8656", 
-                  `Selected (30%)` = "#83A961"), 
+          values=c(`Unselected` = pal$down_pale, 
+                  `Selected (30%)` = pal$up_pale), 
           na.translate = F
         ) +
 
@@ -478,7 +488,10 @@ list(
               position = position_jitter(width = 0.1, seed = 123),
               box.padding = unit(0.5, "lines"),
               segment.color = 'grey', show.legend = FALSE) +
-            scale_color_discrete(palette=c("#83A961", "#CC8656", "#467592")) +
+            scale_color_discrete(
+              palette=c(pal$middle, 
+                        pal$down_pale,
+                        pal$up_pale)) +
             coord_fixed() +
             labs(x="Centroid Longitude (Scaled & Centered)", 
                  y="Centroid Latitude (Scaled & Centered)", 
@@ -529,8 +542,8 @@ list(
         # C. Colours
         scale_fill_manual(
           values = c(
-            "2020-2024 Increase" = "#83A961",
-            "2020 Baseline"      = "#CC8656"
+            "2020-2024 Increase" = pal$up_pale,
+            "2020 Baseline"      = pal$down_pale
           )
         ) +
         # D. Y-axis: 0 to 25%, ticks every 5%
@@ -579,7 +592,7 @@ list(
       fig_tot <- fig/cpcad + 
         plot_annotation(tag_levels = list(c("a)", "b)")))  +
         plot_layout(heights = c(2, 5))
-      ggsave(here("plots", "Fig2a_protection_progress.png"), fig_tot, width = 9, height = 12)
+      ggsave(here("plots", "Fig2_protection_progress.png"), fig_tot, width = 9, height = 12)
       fig_tot
     }
   )
