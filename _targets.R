@@ -345,7 +345,7 @@ list(
     scenarios_centroids |>
       left_join(scenario_LUT)
   ),
-  # Figure 5
+  # Figure 4
   tar_target(
     scenario_centroid_plot,
     {
@@ -364,12 +364,12 @@ list(
             labs(x="Centroid Longitude (Scaled & Centered)", 
                  y="Centroid Latitude (Scaled & Centered)", 
           color = "Scenario \nOrigin")
-      ggsave(here("plots", "Fig5_centroid_plot.png"), p, width = 8, height = 10)
+      ggsave(here("plots", "Fig4_centroid_plot.png"), p, width = 8, height = 10)
       p
     }
   ),
 
-  # Figure F2
+  # Figure 2
   # Load data
   tar_target(
     fig2a_data,
