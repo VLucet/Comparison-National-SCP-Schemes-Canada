@@ -18,11 +18,14 @@ tar_option_set(packages = c(
   "readr",
   "tidyr",
   "ggplot2",
+  "ggnewscale",
   "ggrepel",
+  "patchwork",
   "pheatmap",
   "stringr",
   "dplyr",
   "terra",
+  "tidyterra",
   "sf")
 )
 
@@ -277,6 +280,15 @@ list(
       protected_areas
     }
   ),
+  # Have an NA option
+  tar_terra_rast(
+    protected_areas_mask,
+    {
+      temp <- protected_areas
+      temp[temp!=1] <- NA
+      temp
+    }
+  ),
   # Extract values
   tar_qs(
     protected_areas_values,
@@ -299,11 +311,73 @@ list(
     all_scenarios_sum_no_PA,
     {
       temp <- all_scenarios_sum
-      temp[protected_areas==1] <- 99
+      temp[protected_areas==1] <- NA
       temp
     }
   ),
   # Make plot now
+  tar_target(
+    scenarios_sum_plot,
+    {
+      temp <- protected_areas_mask
+      temp <- as.factor(temp)
+      levels(temp) <- data.frame(ID=1, CPCAD="Protected \nArea")
+
+      # P1
+      p1 <- ggplot() +
+        
+        geom_spatraster(data=all_scenarios_sum_no_PA) +
+        scale_fill_princess_c("america") +
+
+        labs(fill="Selection \nFrequency") +
+
+        new_scale_fill() +
+
+        geom_spatraster(data=temp) +
+        scale_fill_manual(values=c(`Protected \nArea` = "grey75"), na.translate = F) +
+        
+        theme_minimal() +
+        labs(fill="")
+      ggsave(here("plots/Fig3_sum_plot.png"), p1)
+      
+      # P2
+      # 5 is the cuttoff for about 30%
+      # See:
+      # as.data.frame(freq(all_scenarios_sum_no_PA)) |> 
+      #   arrange(desc(value)) |> 
+      #   mutate(prop = round((count/sum(count))*100, 2), cumprop = cumsum(prop))
+
+      all_scenarios_sum_no_PA_30 <- as.numeric(all_scenarios_sum_no_PA>=5)
+      all_scenarios_sum_no_PA_30 <- as.factor(all_scenarios_sum_no_PA_30)
+      levels(all_scenarios_sum_no_PA_30) <- 
+        data.frame(ID = c(0,1), sum = c("Unselected", "Selected (30%)"))
+
+      p2 <- ggplot() +
+        
+        geom_spatraster(data=all_scenarios_sum_no_PA_30) +
+        scale_fill_manual(
+          values=c(`Unselected` = "#709C96", 
+                  `Selected (30%)` = "#D07032"), 
+          na.translate = F
+        ) +
+
+        labs(fill="") +
+
+        new_scale_fill() +
+
+        geom_spatraster(data=temp) +
+        scale_fill_manual(values=c(`Protected \nArea` = "grey75"), na.translate = F) +
+        
+        theme_minimal() +
+        labs(fill="")
+      ggsave(here("plots/Fig3_selection.png"), p2)
+
+      p <- p1/p2 + plot_annotation(tag_levels = list(c("a)", "b)")))
+      ggsave(here("plots/Fig3_complete.png"), p, height = 12, width = 8)
+      p
+    }
+  ),
+
 
   ## Figures S1 & F5
 
