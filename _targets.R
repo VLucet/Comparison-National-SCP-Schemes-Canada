@@ -14,6 +14,7 @@ tar_source("functions.R")
 # Packages to load within pipepline
 tar_option_set(packages = c(
   "here", 
+  "curl",
   "readr",
   "tidyr",
   "ggplot2",
@@ -133,13 +134,41 @@ list(
     unlist(lapply(X = eckert_sub_archives, 
       FUN = unzip, exdir = here("data", "analyses", "eckert")))
   ),
-  # Load the scenarios
-  tar_terra_rast(
-    eckert_scenarios, 
+  # Find correct files
+  tar_file(
+    eckert_all_sce,
     {
       eckert_all_tif <- eckert_all_files[!str_detect(eckert_all_files, fixed(".xml"))]
       eckert_all_sce <- eckert_all_tif[!str_detect(eckert_all_tif, fixed("__MACOSX"))]
-      eckert <- rast(eckert_all_sce[str_detect(eckert_all_sce, fixed("Binary Run Maps"))])
+      eckert_all_sce[str_detect(eckert_all_sce, fixed("Binary Run Maps"))]
+    }
+  ),
+  # Load the scenarios
+  # Protected area identification
+  tar_terra_rast(
+    eckert_PA, 
+    {
+      eckert <- rast(eckert_all_sce)[[1]]
+      eckert <- eckert == 2
+      names(eckert) <- "PA"
+      eckert
+    }
+  ),
+  # Reproj said PAs
+  tar_terra_rast(
+    eckert_PA_rj, 
+    {
+      resample(
+          project(eckert_PA, karimi_scenarios_locked_scaled, method = "near"),
+          karimi_scenarios_locked_scaled, method = "near"
+        )
+    }
+  ),
+  # All scenarios
+  tar_terra_rast(
+    eckert_scenarios, 
+    {
+      eckert <- rast(eckert_all_sce)
       eckert[eckert != 0] <- 1
       eckert
     }
@@ -164,6 +193,7 @@ list(
       r_scaled
     }
   ),
+  # Reproj
   tar_terra_rast(
     eckert_scenarios_scaled_rj,
     resample(
@@ -241,14 +271,17 @@ list(
   # Load as raster
   tar_terra_rast(
     protected_areas,
-    rast(protected_areas_file)
+    {
+      protected_areas <- rast(protected_areas_file)
+      protected_areas[eckert_PA_rj==1] <- 1
+      protected_areas
+    }
   ),
   # Extract values
   tar_qs(
     protected_areas_values,
     values(protected_areas)
   ),
-
 
   ## ALL SCENARIOS FROM ALL STUDIES STACK
   tar_terra_rast(
@@ -257,11 +290,20 @@ list(
   ),
 
   ## Figure F4
-  # TODO: incorporate Olivia's code
   tar_terra_rast(
     all_scenarios_sum,
-    sum(all_scenarios)
+    sum(all_scenarios[[c("karimi_sum", "eckert_sum", "targetsum")]], na.rm = T)
   ),
+  # Without PA
+  tar_terra_rast(
+    all_scenarios_sum_no_PA,
+    {
+      temp <- all_scenarios_sum
+      temp[protected_areas==1] <- 99
+      temp
+    }
+  ),
+  # Make plot now
 
   ## Figures S1 & F5
 
