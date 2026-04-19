@@ -64,23 +64,6 @@ list(
     st_simplify(canada_sf, dTolerance = 1000)
   ),
 
-  ## Protected areas (from karimi)
-  # File
-  tar_file(
-    protected_areas_file,
-    here("data", "analyses", "karimi", "PA.tif")
-  ),
-  # Load as raster
-  tar_terra_rast(
-    protected_areas,
-    rast(protected_areas_file)
-  ),
-  # Extract values
-  tar_qs(
-    protected_areas_values,
-    values(protected_areas)
-  ),
-
   ## Karimi
   ## shared by the author
   tar_file(
@@ -249,6 +232,24 @@ list(
     c(currie_stack_pre, currie_rast_all_sols_scaled)
   ),
 
+  ## Protected areas (from Karimi's, combined with Eckert's for comparison in figure 3)
+  # File
+  tar_file(
+    protected_areas_file,
+    here("data", "analyses", "karimi", "PA.tif")
+  ),
+  # Load as raster
+  tar_terra_rast(
+    protected_areas,
+    rast(protected_areas_file)
+  ),
+  # Extract values
+  tar_qs(
+    protected_areas_values,
+    values(protected_areas)
+  ),
+
+
   ## ALL SCENARIOS FROM ALL STUDIES STACK
   tar_terra_rast(
     all_scenarios,
@@ -371,13 +372,13 @@ list(
   # Figure F2
   # Load data
   tar_target(
-    fig2_data,
+    fig2a_data,
     read_csv(here("data", "T_Fig2_Data.csv"))
   ),
   # Manipulate data
   tar_target(
     t_hist_long,
-    process_hist_data(fig2_data)
+    process_hist_data(fig2a_data)
   ),
   # Make figure
   tar_target(
@@ -444,7 +445,7 @@ list(
           # No in-figure title
           plot.title = element_blank()
         )
-      ggsave(here("plots", "Fig2_protection_progress.png"), fig, width = 12, height = 7)
+      ggsave(here("plots", "Fig2a_protection_progress.png"), fig, width = 12, height = 7)
       fig
     }
   )
