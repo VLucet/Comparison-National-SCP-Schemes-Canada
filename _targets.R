@@ -26,7 +26,10 @@ tar_option_set(packages = c(
   "dplyr",
   "terra",
   "tidyterra",
-  "sf")
+  "sf",
+  "png",
+  "grid"
+  )
 )
 
 list(
@@ -327,7 +330,7 @@ list(
       p1 <- ggplot() +
         
         geom_spatraster(data=all_scenarios_sum_no_PA) +
-        scale_fill_princess_c("america") +
+        scale_fill_whitebox_c("soft") +
 
         labs(fill="Selection \nFrequency") +
 
@@ -356,8 +359,8 @@ list(
         
         geom_spatraster(data=all_scenarios_sum_no_PA_30) +
         scale_fill_manual(
-          values=c(`Unselected` = "#709C96", 
-                  `Selected (30%)` = "#D07032"), 
+          values=c(`Unselected` = "#CC8656", 
+                  `Selected (30%)` = "#83A961"), 
           na.translate = F
         ) +
 
@@ -475,7 +478,7 @@ list(
               position = position_jitter(width = 0.1, seed = 123),
               box.padding = unit(0.5, "lines"),
               segment.color = 'grey', show.legend = FALSE) +
-            scale_color_discrete(palette=c("#003f5c", "#9f509d", "#ffa600")) +
+            scale_color_discrete(palette=c("#83A961", "#CC8656", "#467592")) +
             coord_fixed() +
             labs(x="Centroid Longitude (Scaled & Centered)", 
                  y="Centroid Latitude (Scaled & Centered)", 
@@ -496,6 +499,18 @@ list(
     t_hist_long,
     process_hist_data(fig2a_data)
   ),
+  # make the cpcad figure
+  tar_target(
+    cpcad,
+    {
+      img <- readPNG(here("plots","CPCAD.png"))
+      img <- rasterGrob(img, interpolate = TRUE)
+      ggplot() + 
+        geom_blank() + 
+        annotation_custom(img, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+        theme_minimal()
+    }
+  ),
   # Make figure
   tar_target(
     histogram_progress,
@@ -514,8 +529,8 @@ list(
         # C. Colours
         scale_fill_manual(
           values = c(
-            "2020-2024 Increase" = "#33a02c",
-            "2020 Baseline"      = "#1f78b4"
+            "2020-2024 Increase" = "#83A961",
+            "2020 Baseline"      = "#CC8656"
           )
         ) +
         # D. Y-axis: 0 to 25%, ticks every 5%
@@ -561,8 +576,11 @@ list(
           # No in-figure title
           plot.title = element_blank()
         )
-      ggsave(here("plots", "Fig2a_protection_progress.png"), fig, width = 12, height = 7)
-      fig
+      fig_tot <- fig/cpcad + 
+        plot_annotation(tag_levels = list(c("a)", "b)")))  +
+        plot_layout(heights = c(2, 5))
+      ggsave(here("plots", "Fig2a_protection_progress.png"), fig_tot, width = 9, height = 12)
+      fig_tot
     }
   )
 )
