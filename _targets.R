@@ -40,7 +40,7 @@ list(
   # Zipped file
   tar_target(
     canada_archive_path,
-    here("data", "canada", "canada.zip")
+    here("data", "canada", "lpr_000b21a_e.zip")
   ),
   # Download if doesn't exist
   tar_target(
@@ -56,7 +56,7 @@ list(
     }
   ),
   # Unzip
-  tar_file(
+  tar_target(
     canada_shp,
     unzip(canada_archive, exdir = here("data", "canada"))
   ),
