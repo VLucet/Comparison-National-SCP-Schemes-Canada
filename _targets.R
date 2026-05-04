@@ -481,11 +481,10 @@ list(
       p <- scenarios_centroids_clean |>
             ggplot(aes(x, y, color = study)) +
             theme_bw() +
-            geom_point(position = position_jitter(width = 0.1, seed = 123)) +
+            geom_point(aes(shape = study)) +
             geom_text_repel(
               aes(label = name, color = study),
               fontface = "bold",
-              position = position_jitter(width = 0.1, seed = 123),
               box.padding = unit(0.5, "lines"),
               segment.color = 'grey', show.legend = FALSE) +
             scale_color_discrete(
@@ -495,7 +494,8 @@ list(
             coord_fixed() +
             labs(x="Centroid Longitude (Scaled & Centered)", 
                  y="Centroid Latitude (Scaled & Centered)", 
-          color = "Scenario \nOrigin")
+          color = "Scenario \nOrigin",
+          shape = "Scenario \nOrigin")
       ggsave(here("plots", "Fig4_centroid_plot.png"), p, width = 8, height = 10)
       p
     }
