@@ -542,7 +542,7 @@ list(
         # C. Colours
         scale_fill_manual(
           values = c(
-            "2020-2024 Increase" = pal$up_pale,
+            "2020-2025 Increase" = pal$up_pale,
             "2020 Baseline"      = pal$down_pale
           )
         ) +
