@@ -1,11 +1,3 @@
-
-<!-- 
-#### Code contributors
-
-Valentin Lucet
-Melanie Brochu -->
-
-
 # Comparison of National Systematic Conservation Prioritizations Schemes in Canada: Implications for Federal Policy and the Implementation of the 30x30 Conservation Targets 
 
 [![R](https://img.shields.io/badge/R-%3E%3D4.6-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
@@ -23,14 +15,9 @@ Canada is less than halfway towards its commitment of allocating 30% of its land
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
     - [Data](#data)
-    - [Plots](##plots)
-    - [Outputs](##outputs)
-    - [Quarto](##quarto)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Reproducing the Analysis](#reproducing-the-analysis)
-- [Pipeline Overview](#pipeline-overview)
-- [Reproducibility Notes](#reproducibility-notes)
 - [License](#license)
 
 ---
@@ -138,10 +125,6 @@ tar_outdated()
 ```
 
 Outputs (cleaned data, model objects, figures, tables) are cached in `_targets/` and reconstructed on demand — they do not need to be committed to version control.
-
----
-
-## Reproducibility Notes
 
 - All package versions are pinned via `renv.lock`; use `renv::restore()` rather than manually installing packages.
 - The `targets` pipeline is fully declarative — re-running `tar_make()` after any code or data change will only recompute affected targets, ensuring outputs stay in sync with inputs.
