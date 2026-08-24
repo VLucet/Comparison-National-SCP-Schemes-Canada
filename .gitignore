@@ -1,7 +1,4 @@
-data/*
-!data/T_Fig2_Data.csv
 results
 *.qgz
 _targets
-old
 *.svg
