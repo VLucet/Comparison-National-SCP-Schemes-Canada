@@ -1,3 +1,5 @@
+# Returns the full list of scenario names in fixed display order,
+# grouped by study (Karimi: 6, Eckert: 15, Currie: 6)
 get_scenarios_in_order <- function() {
   c(
         # 6 Karimi
@@ -35,6 +37,8 @@ get_scenarios_in_order <- function() {
       )
 }
 
+# Builds a lookup table mapping each scenario (from scenarios_centroids)
+# to its source study and display name
 get_scenario_LUT <- function(scenarios_centroids) {
   data.frame(
       scenario = scenarios_centroids$scenario,
@@ -43,11 +47,15 @@ get_scenario_LUT <- function(scenarios_centroids) {
     )
 }
 
+# Mean of x, treating NA values as 0 instead of dropping them
 my_mean <- function(x) {
   x[is.na(x)] <- 0
   mean(x)
 }
 
+# Reshapes historical region data from wide to long format, cleans up
+# metric/region labels, orders regions (provinces alphabetically, then
+# Terrestrial/Marine last), and flags rows as "Totals" vs "Province/Territory"
 process_hist_data <- function(t_hist) {
   # Code contributed by M. Brochu
   # 3. Reshape from wide to long
@@ -92,6 +100,8 @@ process_hist_data <- function(t_hist) {
 
 }
 
+# [Disabled] Computes centroids: standardizes xy coords, column-normalizes
+# values, then projects standardized coords through normalized value weights
 # compute_centroids <- function(xy_mat, values_mat) {
 #   xy_mat_scaled <- scale(xy_mat) |> as.matrix()
 #   values_mat_norm <- sweep(values_mat, 2, colSums(values_mat), "/") |> as.matrix()
