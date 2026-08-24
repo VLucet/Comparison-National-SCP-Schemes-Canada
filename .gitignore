@@ -2,3 +2,5 @@ results
 *.qgz
 _targets
 *.svg
+README_files
+README.html
