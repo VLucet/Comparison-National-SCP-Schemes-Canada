@@ -83,6 +83,7 @@ list(
 
   ## Karimi
   ## shared by the author
+  # Path to the archive of Karimi's final results
   tar_file(
     karimi_archive_results, 
     here("data", "archives", "karimi", "3-final_result.zip")
@@ -92,7 +93,8 @@ list(
     karimi_results,
     unzip(karimi_archive_results, exdir = here("data", "analyses", "karimi"))
   ),
-  # Load all scenarios
+  # Load all scenarios, dropping penalty variants and the
+  # "with Indigenous lands" variants
   tar_terra_rast(
     karimi_scenarios,
     {
@@ -101,7 +103,7 @@ list(
       rast(no_ind_only)
     }
   ),
-  # Filter down to locked scenarios
+  # Filter down to the locked-in scenarios only
   tar_terra_rast(
     karimi_scenarios_locked, 
     karimi_scenarios[[which(str_detect(names(karimi_scenarios), "_L(ockedin|okedin)_"))]]
@@ -115,7 +117,7 @@ list(
       temp
     }
   ),
-  # Scale them
+  # Scale them (min-max normalize to 0-1)
   tar_terra_rast(
     karimi_scenarios_locked_scaled, 
     {
@@ -126,7 +128,7 @@ list(
       r_scaled
     }
   ),
-  # Stack
+  # Stack all Karimi layers (scenarios + sum + scaled) into one raster
   tar_terra_rast(
     karimi_stack,
     c(karimi_scenarios_locked, karimi_scenarios_locked_sum, karimi_scenarios_locked_scaled)
@@ -150,7 +152,7 @@ list(
     unlist(lapply(X = eckert_sub_archives, 
       FUN = unzip, exdir = here("data", "analyses", "eckert")))
   ),
-  # Find correct files
+  # Find correct files: TIFs from "Binary Run Maps", excluding Mac junk files
   tar_file(
     eckert_all_sce,
     {
@@ -160,7 +162,7 @@ list(
     }
   ),
   # Load the scenarios
-  # Protected area identification
+  # Protected area identification (value 2 in first layer = protected)
   tar_terra_rast(
     eckert_PA, 
     {
@@ -170,7 +172,7 @@ list(
       eckert
     }
   ),
-  # Reproj said PAs
+  # Reproject/resample said PAs onto Karimi's grid
   tar_terra_rast(
     eckert_PA_rj, 
     {
@@ -180,7 +182,7 @@ list(
         )
     }
   ),
-  # All scenarios
+  # All scenarios, binarized (anything nonzero becomes selected = 1)
   tar_terra_rast(
     eckert_scenarios, 
     {
@@ -198,7 +200,7 @@ list(
       temp
     }
   ),
-  # Scale them
+  # Scale them (min-max normalize to 0-1)
   tar_terra_rast(
     eckert_scenarios_scaled,
     {
@@ -209,7 +211,7 @@ list(
       r_scaled
     }
   ),
-  # Reproj
+  # Reproject the scaled sum onto Karimi's grid
   tar_terra_rast(
     eckert_scenarios_scaled_rj,
     resample(
@@ -217,7 +219,7 @@ list(
           karimi_scenarios_locked_scaled, method = "near"
         )
   ),
-  # Stacks and reprojects
+  # Stack scenarios + sum (reprojected to Karimi's grid) with the scaled layer
   tar_terra_rast(
     eckert_stack,
     c(resample(project(c(eckert_scenarios, eckert_scenarios_sum), 
@@ -231,7 +233,7 @@ list(
     currie_archive,    
     here("data", "archives", "currie", "28255109.zip")
   ),
-  # File list
+  # File list (named by basename for easy lookup)
   tar_target(
     currie_all_files,
     {
@@ -245,12 +247,12 @@ list(
     currie_sf,
     st_read(currie_all_files["pu_100km_alltargets_1sol.shp"])
   ),
-  # Deal with duplicated features
+  # Deal with duplicated features (keep first occurrence per planning unit)
   tar_target(
     currie_sf_clean,
     currie_sf |> group_by(OBJECTID_1) |> slice(1) |> ungroup()
   ),
-  # Convert to rast
+  # Rasterize each target scenario (20/30/40/50% + sum) onto Karimi's grid
   tar_terra_rast(
     currie_stack_pre, 
     c(
@@ -261,7 +263,7 @@ list(
        rasterize(vect(currie_sf_clean), karimi_scenarios_locked_scaled, field = "targetsum")
     )
   ),
-  # Rescale
+  # Rescale (min-max normalize the summed target layer to 0-1)
   tar_terra_rast(
     currie_rast_all_sols_scaled,
     {
@@ -284,7 +286,7 @@ list(
     protected_areas_file,
     here("data", "analyses", "karimi", "PA.tif")
   ),
-  # Load as raster
+  # Load as raster, merging in cells Eckert also flags as protected
   tar_terra_rast(
     protected_areas,
     {
@@ -293,7 +295,7 @@ list(
       protected_areas
     }
   ),
-  # Have an NA option
+  # Have an NA option (mask: 1 = protected, everything else NA)
   tar_terra_rast(
     protected_areas_mask,
     {
@@ -302,7 +304,7 @@ list(
       temp
     }
   ),
-  # Extract values
+  # Extract values (for fast row-wise NA alignment later)
   tar_qs(
     protected_areas_values,
     values(protected_areas)
@@ -315,11 +317,12 @@ list(
   ),
 
   ## Figure F4
+  # Sum of scenario-count layers across all three studies
   tar_terra_rast(
     all_scenarios_sum,
     sum(all_scenarios[[c("karimi_sum", "eckert_sum", "targetsum")]], na.rm = T)
   ),
-  # Without PA
+  # Without PA (mask out already-protected cells)
   tar_terra_rast(
     all_scenarios_sum_no_PA,
     {
@@ -328,7 +331,8 @@ list(
       temp
     }
   ),
-  # Make plot now
+  # Make plot now: Fig 3 = (a) raw selection-frequency map, (b) binary
+  # "selected in >=30%" map, both with protected areas greyed out
   tar_target(
     scenarios_sum_plot,
     {
@@ -394,17 +398,17 @@ list(
 
   ## Figures S1 & F5
 
-  # Get Values
+  # Get Values (all scenario layers as a data frame, one column per layer)
   tar_qs(
     all_scenarios_values,
     as.data.frame(values(all_scenarios))
   ),
-  # Get coords
+  # Get coords (cell centroids, kept in same row order as values, incl. NAs)
   tar_qs(
     all_scenarios_coords,
     as.data.frame(crds(all_scenarios[[1]], na.rm = FALSE))
   ),
-  # Remove Protected areas
+  # Remove Protected areas (set already-protected cells to NA)
   tar_qs(
     all_scenarios_values_clean_pre,
     {
@@ -413,7 +417,8 @@ list(
       temp
     }
   ),
-  # Align NAs
+  # Align NAs: drop rows that are entirely NA, fill remaining NAs with 0,
+  # and reattach coordinates
   tar_qs(
     all_scenarios_values_clean,
     {  
@@ -427,7 +432,7 @@ list(
       cbind(temp_coords, temp)
     }
   ),
-  # Correlations
+  # Correlations between all scenario layers, labeled with scenario names
   tar_target(
     scenarios_cor,
     {
@@ -448,6 +453,8 @@ list(
   ),
 
   ## Scenario Centroids
+  # For each scenario, compute the value-weighted centroid of its selected
+  # cells in scaled/centered xy-space (i.e. where its selections are concentrated)
   tar_target(
     scenarios_centroids,
     {
@@ -463,18 +470,18 @@ list(
         tibble::rownames_to_column("scenario") 
     }
   ),
-  # Scanario LUT
+  # Scenario lookup table (scenario -> study, display name)
   tar_target(
     scenario_LUT,
     get_scenario_LUT(scenarios_centroids)
   ),
-  # clean
+  # Clean: join centroids with study/name metadata
   tar_target(
     scenarios_centroids_clean, 
     scenarios_centroids |>
       left_join(scenario_LUT)
   ),
-  # Figure 4
+  # Figure 4: scatter of scenario centroids, colored/shaped by study, labeled
   tar_target(
     scenario_centroid_plot,
     {
@@ -507,12 +514,12 @@ list(
     fig2a_data,
     read_csv(here("data", "T_Fig2_Data.csv"))
   ),
-  # Manipulate data
+  # Manipulate data (reshape/relabel for plotting; see process_hist_data())
   tar_target(
     t_hist_long,
     process_hist_data(fig2a_data)
   ),
-  # make the cpcad figure
+  # Make the CPCAD panel image (pre-rendered PNG shown as a ggplot)
   tar_target(
     cpcad,
     {
@@ -524,7 +531,8 @@ list(
         theme_minimal()
     }
   ),
-  # Make figure
+  # Make figure: Fig 2 = (a) stacked bar chart of protection progress by
+  # region, stacked on top of (b) the CPCAD image panel
   tar_target(
     histogram_progress,
     {
