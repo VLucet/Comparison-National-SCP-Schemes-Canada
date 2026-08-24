@@ -3,6 +3,7 @@
 [![R](https://img.shields.io/badge/R-%3E%3D4.6-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
 [![targets](https://img.shields.io/badge/pipeline-targets-blue)](https://books.ropensci.org/targets/)
 [![renv](https://img.shields.io/badge/dependencies-renv-informational)](https://rstudio.github.io/renv/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22084173.svg)](https://doi.org/10.5281/zenodo.22084173)
 
 #### Authors:
 
