@@ -74,7 +74,7 @@ Canada is less than halfway towards its commitment of allocating 30% of its land
 
 ## Requirements
 
-- **R** ≥ `4.6.0`
+- **R** ≥ `4.6.1`
 - **[renv](https://rstudio.github.io/renv/)** for package version management
 - **[targets](https://books.ropensci.org/targets/)** for pipeline orchestration
 - Standard build tools if any packages compile from source (e.g., a C/C++ toolchain, GDAL/GEOS/PROJ for spatial packages such as `sf`/`terra`, depending on your OS)
