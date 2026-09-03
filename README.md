@@ -66,7 +66,7 @@ Canada is less than halfway towards its commitment of allocating 30% of its land
 
 2. Eckert et al. 2023: the data from the [paper](https://www.nature.com/articles/s41467-023-42737-x) must be downloaded manually from [figshare](https://figshare.com/s/0551e56687ba119c7bb8).
 
-3. Karimi et al. 2025: the data from the [paper](https://www.facetsjournal.com/doi/10.1139/facets-2024-0295) can be requested from the authors.
+3. Karimi et al. 2025: the data from the [paper](https://www.facetsjournal.com/doi/10.1139/facets-2024-0295) must be downloaded manually from [zenodo](https://zenodo.org/records/22256520) and [osf](https://osf.io/nh2ae/overview?view_only=9a5cfe83dc35490da007a175b7d6f71e).
 
 4. Canada boundary files:the pipeline automatically downloads the [2021 Provinces and Territories boundary file](https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000b21a_e.zip).
 
