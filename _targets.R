@@ -4,6 +4,8 @@
 # running targets::tar_make(), move on to the scripts in the scripts folder.
 
 # Needed packages
+library(sf)
+library(terra)
 library(targets)
 library(tarchetypes)
 library(geotargets)
